@@ -1,0 +1,14 @@
+target/
+.soroban/
+.env
+test_snapshots/
+.stellar/
+.vscode/
+.idea/
+.DS_Store
+
+# AfriAsset specific
+.contract_id
+*.wasm
+node_modules/
+dist/
