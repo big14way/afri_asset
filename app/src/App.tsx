@@ -4,8 +4,12 @@ import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { Mint } from './pages/Mint';
 import { Marketplace } from './pages/Marketplace';
+import { useSorobanEvents } from './hooks/useSorobanEvents';
 
 function App() {
+  // Initialize event listening for real-time marketplace updates
+  useSorobanEvents();
+
   return (
     <Router>
       <Toaster
