@@ -73,9 +73,9 @@ soroban_token_contract.client = false
     .await;
 }
 
-#[test]
-fn funding_existing_account_toml() {
-    TestEnv::from("soroban-init-boilerplate", |env| {
+#[tokio::test]
+async fn funding_existing_account_toml() {
+    TestEnv::from_async("soroban-init-boilerplate", async |env| {
         env.set_environments_toml(format!(
             r#"
 [development]
@@ -109,5 +109,6 @@ soroban_token_contract.client = false
 
         // Run scaffold_build and assert success
         env.scaffold_build("development", true).assert().success();
-    });
+    })
+    .await;
 }
