@@ -2,8 +2,7 @@
 
 use admin_sep::{Administratable, Upgradable};
 use soroban_sdk::{
-    contract, contractimpl, contracttype, contracterror, contractevent,
-    Address, Env, String
+    Address, Env, String, contract, contracterror, contractevent, contractimpl, contracttype,
 };
 
 // Token ID type
@@ -105,7 +104,8 @@ impl RwaToken {
         // Emit initialization event
         Initialized {
             admin: admin.clone(),
-        }.publish(&env);
+        }
+        .publish(&env);
 
         Ok(())
     }
@@ -118,7 +118,8 @@ impl RwaToken {
         yield_data: u128,
     ) -> Result<TokenId, Error> {
         // Check if initialized
-        let admin: Address = env.storage()
+        let admin: Address = env
+            .storage()
             .instance()
             .get(&DataKey::Admin)
             .ok_or(Error::NotInitialized)?;
@@ -127,13 +128,16 @@ impl RwaToken {
         admin.require_auth();
 
         // Get and increment token counter
-        let token_id: TokenId = env.storage()
+        let token_id: TokenId = env
+            .storage()
             .instance()
             .get(&DataKey::TokenCounter)
             .unwrap_or(0u64);
 
         let next_id = token_id + 1;
-        env.storage().instance().set(&DataKey::TokenCounter, &next_id);
+        env.storage()
+            .instance()
+            .set(&DataKey::TokenCounter, &next_id);
 
         // Create metadata
         let token_metadata = Metadata {
@@ -144,14 +148,17 @@ impl RwaToken {
         };
 
         // Store token data
-        env.storage().instance().set(&DataKey::TokenData(token_id), &token_metadata);
+        env.storage()
+            .instance()
+            .set(&DataKey::TokenData(token_id), &token_metadata);
 
         // Emit minting event
         RwaMinted {
             token_id,
             owner: owner.clone(),
             metadata: metadata.clone(),
-        }.publish(&env);
+        }
+        .publish(&env);
 
         Ok(token_id)
     }
@@ -159,7 +166,8 @@ impl RwaToken {
     /// Transfer token ownership
     pub fn transfer(env: Env, token_id: TokenId, to: Address) -> Result<(), Error> {
         // Get token data
-        let mut token_data: Metadata = env.storage()
+        let mut token_data: Metadata = env
+            .storage()
             .instance()
             .get(&DataKey::TokenData(token_id))
             .ok_or(Error::TokenNotFound)?;
@@ -177,14 +185,17 @@ impl RwaToken {
         token_data.owner = to.clone();
 
         // Save updated data
-        env.storage().instance().set(&DataKey::TokenData(token_id), &token_data);
+        env.storage()
+            .instance()
+            .set(&DataKey::TokenData(token_id), &token_data);
 
         // Emit transfer event
         Transfer {
             token_id,
             from: old_owner,
             to: to.clone(),
-        }.publish(&env);
+        }
+        .publish(&env);
 
         Ok(())
     }
@@ -197,7 +208,8 @@ impl RwaToken {
         escrow_xlm: u128,
     ) -> Result<(), Error> {
         // Get token data
-        let mut token_data: Metadata = env.storage()
+        let mut token_data: Metadata = env
+            .storage()
             .instance()
             .get(&DataKey::TokenData(token_id))
             .ok_or(Error::TokenNotFound)?;
@@ -216,12 +228,16 @@ impl RwaToken {
         }
 
         // Store escrow balance
-        env.storage().instance().set(&DataKey::EscrowBalance(token_id), &escrow_xlm);
+        env.storage()
+            .instance()
+            .set(&DataKey::EscrowBalance(token_id), &escrow_xlm);
 
         // Transfer ownership
         let old_owner = token_data.owner.clone();
         token_data.owner = buyer.clone();
-        env.storage().instance().set(&DataKey::TokenData(token_id), &token_data);
+        env.storage()
+            .instance()
+            .set(&DataKey::TokenData(token_id), &token_data);
 
         // Emit trade event
         Trade {
@@ -229,7 +245,8 @@ impl RwaToken {
             from: old_owner,
             to: buyer.clone(),
             escrow: escrow_xlm,
-        }.publish(&env);
+        }
+        .publish(&env);
 
         Ok(())
     }
@@ -237,7 +254,8 @@ impl RwaToken {
     /// Burn/deactivate a token (for expired assets)
     pub fn burn(env: Env, token_id: TokenId) -> Result<(), Error> {
         // Get token data
-        let mut token_data: Metadata = env.storage()
+        let mut token_data: Metadata = env
+            .storage()
             .instance()
             .get(&DataKey::TokenData(token_id))
             .ok_or(Error::TokenNotFound)?;
@@ -248,13 +266,12 @@ impl RwaToken {
         // Deactivate token
         token_data.is_active = false;
         let owner = token_data.owner.clone();
-        env.storage().instance().set(&DataKey::TokenData(token_id), &token_data);
+        env.storage()
+            .instance()
+            .set(&DataKey::TokenData(token_id), &token_data);
 
         // Emit burn event
-        Burned {
-            token_id,
-            owner,
-        }.publish(&env);
+        Burned { token_id, owner }.publish(&env);
 
         Ok(())
     }
@@ -282,7 +299,9 @@ impl RwaToken {
 
     /// Get escrow balance for a token
     pub fn get_escrow(env: Env, token_id: TokenId) -> Option<u128> {
-        env.storage().instance().get(&DataKey::EscrowBalance(token_id))
+        env.storage()
+            .instance()
+            .get(&DataKey::EscrowBalance(token_id))
     }
 }
 
@@ -323,7 +342,10 @@ mod test {
         // Mint token
         let metadata = String::from_str(&env, "QmTestIPFSHash123");
         let yield_data = 1000u128;
-        let token_id = client.try_mint_rwa(&metadata, &owner, &yield_data).unwrap().unwrap();
+        let token_id = client
+            .try_mint_rwa(&metadata, &owner, &yield_data)
+            .unwrap()
+            .unwrap();
 
         assert_eq!(token_id, 0u64);
 
@@ -349,7 +371,10 @@ mod test {
         // Initialize and mint
         let _ = client.try_initialize(&admin).unwrap();
         let metadata = String::from_str(&env, "QmTestIPFSHash123");
-        let token_id = client.try_mint_rwa(&metadata, &owner, &1000u128).unwrap().unwrap();
+        let token_id = client
+            .try_mint_rwa(&metadata, &owner, &1000u128)
+            .unwrap()
+            .unwrap();
 
         // Transfer
         let _ = client.try_transfer(&token_id, &new_owner).unwrap();
@@ -374,11 +399,16 @@ mod test {
         let _ = client.try_initialize(&admin).unwrap();
         let metadata = String::from_str(&env, "QmTestIPFSHash123");
         let yield_data = 1000u128;
-        let token_id = client.try_mint_rwa(&metadata, &seller, &yield_data).unwrap().unwrap();
+        let token_id = client
+            .try_mint_rwa(&metadata, &seller, &yield_data)
+            .unwrap()
+            .unwrap();
 
         // Trade with sufficient escrow
         let escrow_amount = 2000u128;
-        let _ = client.try_trade_with_escrow(&token_id, &buyer, &escrow_amount).unwrap();
+        let _ = client
+            .try_trade_with_escrow(&token_id, &buyer, &escrow_amount)
+            .unwrap();
 
         // Verify new owner
         let token = client.try_get_token(&token_id).unwrap().unwrap();
@@ -402,7 +432,10 @@ mod test {
         // Initialize and mint
         let _ = client.try_initialize(&admin).unwrap();
         let metadata = String::from_str(&env, "QmTestIPFSHash123");
-        let token_id = client.try_mint_rwa(&metadata, &owner, &1000u128).unwrap().unwrap();
+        let token_id = client
+            .try_mint_rwa(&metadata, &owner, &1000u128)
+            .unwrap()
+            .unwrap();
 
         // Burn
         let _ = client.try_burn(&token_id).unwrap();
@@ -428,10 +461,15 @@ mod test {
         let _ = client.try_initialize(&admin).unwrap();
         let metadata = String::from_str(&env, "QmTestIPFSHash123");
         let yield_data = 1000u128;
-        let token_id = client.try_mint_rwa(&metadata, &seller, &yield_data).unwrap().unwrap();
+        let token_id = client
+            .try_mint_rwa(&metadata, &seller, &yield_data)
+            .unwrap()
+            .unwrap();
 
         // Try to trade with insufficient escrow
         let escrow_amount = 500u128; // Less than yield_data
-        let _ = client.try_trade_with_escrow(&token_id, &buyer, &escrow_amount).unwrap();
+        let _ = client
+            .try_trade_with_escrow(&token_id, &buyer, &escrow_amount)
+            .unwrap();
     }
 }
