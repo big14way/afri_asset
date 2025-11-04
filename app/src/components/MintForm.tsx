@@ -1,11 +1,11 @@
 import { useState, type FormEvent, type ChangeEvent } from 'react';
-import { useIPFS } from '../hooks/useIPFS';
+import { useIPFS, type AssetAttributes } from '../hooks/useIPFS';
 import { useRWAContract } from '../hooks/useRWAContract';
 import { useStore } from '../store/useStore';
 import toast from 'react-hot-toast';
 
 export const MintForm = () => {
-  const { uploadFile, uploadMetadata } = useIPFS();
+  const { uploadFile, uploadMetadata, createMetadata, uploadProgress } = useIPFS();
   const { mintRwa } = useRWAContract();
   const { isConnected, isLoading } = useStore();
 
@@ -15,6 +15,11 @@ export const MintForm = () => {
     region: '',
     yieldEstimate: '',
     assetType: '',
+    country: '',
+    state: '',
+    city: '',
+    certification: '',
+    harvestDate: '',
   });
 
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -63,27 +68,43 @@ export const MintForm = () => {
 
     try {
       // Upload image to IPFS
-      toast.loading('Uploading image to IPFS...');
       const imageHash = await uploadFile(imageFile);
 
       if (!imageHash) {
         throw new Error('Failed to upload image');
       }
 
-      // Create metadata object
-      const metadata = {
-        name: formData.name,
-        description: formData.description,
-        image: `ipfs://${imageHash}`,
-        yieldEstimate: Number(formData.yieldEstimate),
-        region: formData.region,
-        assetType: formData.assetType,
-        createdAt: new Date().toISOString(),
-      };
+      // Create additional attributes
+      const additionalAttributes: Partial<AssetAttributes> = {};
+
+      if (formData.country || formData.state || formData.city) {
+        additionalAttributes.location = {
+          country: formData.country,
+          state: formData.state,
+          city: formData.city,
+        };
+      }
+
+      if (formData.certification) {
+        additionalAttributes.certification = formData.certification;
+      }
+
+      if (formData.harvestDate) {
+        additionalAttributes.harvestDate = formData.harvestDate;
+      }
+
+      // Create enhanced metadata with attributes
+      const metadata = createMetadata(
+        formData.name,
+        formData.description,
+        imageHash,
+        Number(formData.yieldEstimate),
+        formData.region,
+        formData.assetType,
+        additionalAttributes
+      );
 
       // Upload metadata to IPFS
-      toast.dismiss();
-      toast.loading('Uploading metadata to IPFS...');
       const metadataHash = await uploadMetadata(metadata);
 
       if (!metadataHash) {
@@ -91,7 +112,6 @@ export const MintForm = () => {
       }
 
       // Mint RWA token
-      toast.dismiss();
       toast.loading('Minting RWA token...');
       const yieldData = Math.floor(Number(formData.yieldEstimate) * 10000000); // Convert to stroops
       await mintRwa(metadataHash, yieldData);
@@ -105,6 +125,11 @@ export const MintForm = () => {
         region: '',
         yieldEstimate: '',
         assetType: '',
+        country: '',
+        state: '',
+        city: '',
+        certification: '',
+        harvestDate: '',
       });
       setImageFile(null);
       setImagePreview(null);
@@ -239,6 +264,123 @@ export const MintForm = () => {
           aria-required="true"
         />
       </div>
+
+      {/* Optional Advanced Fields */}
+      <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Additional Details (Optional)
+        </h3>
+
+        {/* Location Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label
+              htmlFor="country"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              Country
+            </label>
+            <input
+              type="text"
+              id="country"
+              name="country"
+              value={formData.country}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="e.g., Nigeria"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="state"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              State/Province
+            </label>
+            <input
+              type="text"
+              id="state"
+              name="state"
+              value={formData.state}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="e.g., Lagos State"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="city"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              City
+            </label>
+            <input
+              type="text"
+              id="city"
+              name="city"
+              value={formData.city}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="e.g., Ikeja"
+            />
+          </div>
+        </div>
+
+        {/* Certification and Harvest Date */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label
+              htmlFor="certification"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              Certification
+            </label>
+            <input
+              type="text"
+              id="certification"
+              name="certification"
+              value={formData.certification}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="e.g., Organic, Fair Trade"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="harvestDate"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              Harvest Date
+            </label>
+            <input
+              type="date"
+              id="harvestDate"
+              name="harvestDate"
+              value={formData.harvestDate}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Upload Progress */}
+      {uploadProgress > 0 && (
+        <div className="mb-4">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+            <div
+              className="bg-primary-600 h-2.5 rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 text-center">
+            Uploading... {uploadProgress}%
+          </p>
+        </div>
+      )}
 
       {/* Image Upload */}
       <div className="mb-6">
