@@ -70,20 +70,34 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   // Connect to Freighter wallet
   const connectFreighter = useCallback(async (): Promise<string | null> => {
     try {
+      console.log('🔌 Attempting to connect to Freighter...');
+
       // Check if Freighter is installed
       const allowed = await isAllowed();
+      console.log('✓ Freighter isAllowed:', allowed);
 
       if (!allowed) {
         // Request access - this will show the Freighter popup
+        console.log('📝 Requesting access...');
         const accessObj = await requestAccess();
+        console.log('✓ Access response:', accessObj);
 
         if (accessObj.error) {
+          console.error('❌ Access error:', accessObj.error);
           toast.error('Failed to get access: ' + accessObj.error);
           return null;
         }
 
         const publicKey = accessObj.address;
+        console.log('✓ Got public key from requestAccess:', publicKey);
 
+        if (!publicKey) {
+          console.error('❌ No public key received');
+          toast.error('No address received from Freighter');
+          return null;
+        }
+
+        console.log('Setting state: address=', publicKey, 'walletType=freighter, isConnected=true');
         setAddress(publicKey);
         setWalletType('freighter');
         setIsConnected(true);
@@ -93,19 +107,31 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
         localStorage.setItem('wallet_address', publicKey);
         localStorage.setItem('wallet_type', 'freighter');
 
-        toast.success('Freighter wallet connected!');
+        console.log('✅ Wallet connected successfully!');
+        toast.success(`Wallet connected: ${publicKey.slice(0,6)}...${publicKey.slice(-4)}`);
         return publicKey;
       } else {
         // Already authorized, just get the address
+        console.log('📍 Getting existing address...');
         const addressObj = await getAddress();
+        console.log('✓ Address response:', addressObj);
 
         if (addressObj.error) {
+          console.error('❌ Get address error:', addressObj.error);
           toast.error('Failed to get address: ' + addressObj.error);
           return null;
         }
 
         const publicKey = addressObj.address;
+        console.log('✓ Got public key from getAddress:', publicKey);
 
+        if (!publicKey) {
+          console.error('❌ No public key received');
+          toast.error('No address received from Freighter');
+          return null;
+        }
+
+        console.log('Setting state: address=', publicKey, 'walletType=freighter, isConnected=true');
         setAddress(publicKey);
         setWalletType('freighter');
         setIsConnected(true);
@@ -115,11 +141,12 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
         localStorage.setItem('wallet_address', publicKey);
         localStorage.setItem('wallet_type', 'freighter');
 
-        toast.success('Freighter wallet connected!');
+        console.log('✅ Wallet connected successfully!');
+        toast.success(`Wallet connected: ${publicKey.slice(0,6)}...${publicKey.slice(-4)}`);
         return publicKey;
       }
     } catch (error) {
-      console.error('Error connecting to Freighter:', error);
+      console.error('❌ Error connecting to Freighter:', error);
       toast.error('Failed to connect to Freighter. Please ensure it is installed.');
       return null;
     }
