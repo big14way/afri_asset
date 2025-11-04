@@ -111,25 +111,50 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
         toast.success(`Wallet connected: ${publicKey.slice(0,6)}...${publicKey.slice(-4)}`);
         return publicKey;
       } else {
-        // Already authorized, just get the address
+        // Already authorized, try to get the address first
         console.log('📍 Getting existing address...');
         const addressObj = await getAddress();
         console.log('✓ Address response:', addressObj);
 
-        if (addressObj.error) {
-          console.error('❌ Get address error:', addressObj.error);
-          toast.error('Failed to get address: ' + addressObj.error);
-          return null;
+        // If getAddress returns empty, use requestAccess instead
+        if (!addressObj.address || addressObj.error) {
+          console.log('⚠️ getAddress returned empty, using requestAccess instead...');
+          const accessObj = await requestAccess();
+          console.log('✓ Access response:', accessObj);
+
+          if (accessObj.error) {
+            console.error('❌ Access error:', accessObj.error);
+            toast.error('Failed to get access: ' + accessObj.error);
+            return null;
+          }
+
+          const publicKey = accessObj.address;
+          console.log('✓ Got public key from requestAccess:', publicKey);
+
+          if (!publicKey) {
+            console.error('❌ No public key received');
+            toast.error('No address received from Freighter');
+            return null;
+          }
+
+          console.log('Setting state: address=', publicKey, 'walletType=freighter, isConnected=true');
+          setAddress(publicKey);
+          setWalletType('freighter');
+          setIsConnected(true);
+          setIsCorrectNetwork(true);
+
+          // Persist connection
+          localStorage.setItem('wallet_address', publicKey);
+          localStorage.setItem('wallet_type', 'freighter');
+
+          console.log('✅ Wallet connected successfully!');
+          toast.success(`Wallet connected: ${publicKey.slice(0,6)}...${publicKey.slice(-4)}`);
+          return publicKey;
         }
 
+        // getAddress worked, use that address
         const publicKey = addressObj.address;
         console.log('✓ Got public key from getAddress:', publicKey);
-
-        if (!publicKey) {
-          console.error('❌ No public key received');
-          toast.error('No address received from Freighter');
-          return null;
-        }
 
         console.log('Setting state: address=', publicKey, 'walletType=freighter, isConnected=true');
         setAddress(publicKey);
