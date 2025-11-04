@@ -1,11 +1,11 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { useSoroban } from '../hooks/useSoroban';
+import { useWallet } from '../contexts/WalletContext';
 import { useEffect } from 'react';
 
 export const Layout = () => {
-  const { isDarkMode, toggleTheme, walletAddress, isConnected } = useStore();
-  const { connectWallet, disconnectWallet, isConnecting } = useSoroban();
+  const { isDarkMode, toggleTheme } = useStore();
+  const { isConnected, address, connect, disconnect, walletType } = useWallet();
   const location = useLocation();
 
   useEffect(() => {
@@ -119,22 +119,28 @@ export const Layout = () => {
               </button>
 
               {/* Wallet Button */}
-              {isConnected && walletAddress ? (
-                <button
-                  onClick={disconnectWallet}
-                  className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors text-sm font-medium"
-                  aria-label="Disconnect wallet"
-                >
-                  {formatAddress(walletAddress)}
-                </button>
+              {isConnected && address ? (
+                <div className="flex items-center space-x-2">
+                  {walletType && (
+                    <span className="text-xs px-2 py-1 rounded bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300">
+                      {walletType === 'freighter' ? 'Freighter' : 'WalletConnect'}
+                    </span>
+                  )}
+                  <button
+                    onClick={disconnect}
+                    className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors text-sm font-medium"
+                    aria-label="Disconnect wallet"
+                  >
+                    {formatAddress(address)}
+                  </button>
+                </div>
               ) : (
                 <button
-                  onClick={connectWallet}
-                  disabled={isConnecting}
-                  className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                  onClick={() => connect('freighter')}
+                  className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 transition-colors text-sm font-medium"
                   aria-label="Connect wallet"
                 >
-                  {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                  Connect Wallet
                 </button>
               )}
             </div>

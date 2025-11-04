@@ -1,0 +1,195 @@
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { isAllowed, setAllowed, signTransaction } from '@stellar/freighter-api';
+import toast from 'react-hot-toast';
+
+const NETWORK_PASSPHRASE = 'Test SDF Future Network ; October 2022';
+
+export interface WalletContextType {
+  // Connection state
+  isConnected: boolean;
+  address: string | null;
+  walletType: 'freighter' | 'walletconnect' | null;
+
+  // Connection methods
+  connect: (type?: 'freighter' | 'walletconnect') => Promise<string | null>;
+  disconnect: () => void;
+
+  // Transaction methods
+  signTransaction: (xdr: string) => Promise<string>;
+
+  // Network info
+  networkPassphrase: string;
+  isCorrectNetwork: boolean;
+}
+
+const WalletContext = createContext<WalletContextType | undefined>(undefined);
+
+interface WalletProviderProps {
+  children: ReactNode;
+}
+
+export const WalletProvider = ({ children }: WalletProviderProps) => {
+  const [isConnected, setIsConnected] = useState(false);
+  const [address, setAddress] = useState<string | null>(null);
+  const [walletType, setWalletType] = useState<'freighter' | 'walletconnect' | null>(null);
+  const [isCorrectNetwork, setIsCorrectNetwork] = useState(true);
+
+  // Check for existing connection on mount
+  useEffect(() => {
+    const checkExistingConnection = async () => {
+      const savedAddress = localStorage.getItem('wallet_address');
+      const savedWalletType = localStorage.getItem('wallet_type') as 'freighter' | 'walletconnect' | null;
+
+      if (savedAddress && savedWalletType === 'freighter') {
+        try {
+          const allowed = await isAllowed();
+          if (allowed) {
+            const publicKey = await (window as any).freighterApi.getPublicKey();
+            if (publicKey === savedAddress) {
+              setAddress(savedAddress);
+              setWalletType('freighter');
+              setIsConnected(true);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking existing connection:', error);
+          localStorage.removeItem('wallet_address');
+          localStorage.removeItem('wallet_type');
+        }
+      }
+    };
+
+    checkExistingConnection();
+  }, []);
+
+  // Connect to Freighter wallet
+  const connectFreighter = useCallback(async (): Promise<string | null> => {
+    try {
+      const allowed = await isAllowed();
+
+      if (!allowed) {
+        await setAllowed();
+      }
+
+      // Check network
+      const networkDetails = await (window as any).freighterApi?.getNetworkDetails();
+
+      if (networkDetails && networkDetails.networkPassphrase !== NETWORK_PASSPHRASE) {
+        toast.error('Please switch to Stellar Futurenet in Freighter');
+        setIsCorrectNetwork(false);
+        return null;
+      }
+
+      setIsCorrectNetwork(true);
+
+      const publicKey = await (window as any).freighterApi.getPublicKey();
+
+      setAddress(publicKey);
+      setWalletType('freighter');
+      setIsConnected(true);
+
+      // Persist connection
+      localStorage.setItem('wallet_address', publicKey);
+      localStorage.setItem('wallet_type', 'freighter');
+
+      toast.success('Freighter wallet connected!');
+      return publicKey;
+    } catch (error) {
+      console.error('Error connecting to Freighter:', error);
+      toast.error('Failed to connect to Freighter. Please ensure it is installed.');
+      return null;
+    }
+  }, []);
+
+  // Connect to WalletConnect (placeholder for future implementation)
+  const connectWalletConnect = useCallback(async (): Promise<string | null> => {
+    try {
+      // This will be implemented with WalletConnect modal
+      toast('WalletConnect integration coming soon!');
+      return null;
+    } catch (error) {
+      console.error('Error connecting to WalletConnect:', error);
+      toast.error('Failed to connect via WalletConnect');
+      return null;
+    }
+  }, []);
+
+  // Main connect method
+  const connect = useCallback(async (type: 'freighter' | 'walletconnect' = 'freighter'): Promise<string | null> => {
+    if (type === 'freighter') {
+      return connectFreighter();
+    } else {
+      return connectWalletConnect();
+    }
+  }, [connectFreighter, connectWalletConnect]);
+
+  // Disconnect wallet
+  const disconnect = useCallback(() => {
+    setAddress(null);
+    setWalletType(null);
+    setIsConnected(false);
+    setIsCorrectNetwork(true);
+
+    localStorage.removeItem('wallet_address');
+    localStorage.removeItem('wallet_type');
+
+    toast.success('Wallet disconnected');
+  }, []);
+
+  // Sign transaction
+  const signTx = useCallback(async (xdr: string): Promise<string> => {
+    if (!isConnected || !address) {
+      throw new Error('Wallet not connected');
+    }
+
+    if (walletType === 'freighter') {
+      try {
+        const result = await signTransaction(xdr, {
+          networkPassphrase: NETWORK_PASSPHRASE,
+        });
+
+        // Handle both old and new Freighter API response formats
+        if (typeof result === 'string') {
+          return result;
+        } else if (result && typeof result === 'object' && 'signedTxXdr' in result) {
+          return (result as any).signedTxXdr;
+        }
+
+        throw new Error('Invalid signature response');
+      } catch (error) {
+        console.error('Error signing transaction:', error);
+        throw new Error('Failed to sign transaction');
+      }
+    }
+
+    throw new Error('Unsupported wallet type');
+  }, [isConnected, address, walletType]);
+
+  const value: WalletContextType = {
+    isConnected,
+    address,
+    walletType,
+    connect,
+    disconnect,
+    signTransaction: signTx,
+    networkPassphrase: NETWORK_PASSPHRASE,
+    isCorrectNetwork,
+  };
+
+  return (
+    <WalletContext.Provider value={value}>
+      {children}
+    </WalletContext.Provider>
+  );
+};
+
+// Custom hook to use wallet context
+export const useWallet = (): WalletContextType => {
+  const context = useContext(WalletContext);
+
+  if (!context) {
+    throw new Error('useWallet must be used within a WalletProvider');
+  }
+
+  return context;
+};

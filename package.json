@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@reown/appkit": "^1.8.12",
+    "@reown/appkit-utils": "^1.8.12",
+    "@stellar/stellar-sdk": "^14.3.0",
+    "viem": "^2.38.6",
+    "wagmi": "^2.19.2"
+  }
+}
