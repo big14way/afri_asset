@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { isAllowed, setAllowed, signTransaction } from '@stellar/freighter-api';
+import { isAllowed, setAllowed, signTransaction, requestAccess, getAddress } from '@stellar/freighter-api';
 import toast from 'react-hot-toast';
 
 const NETWORK_PASSPHRASE = 'Test SDF Future Network ; October 2022';
@@ -44,11 +44,16 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
         try {
           const allowed = await isAllowed();
           if (allowed) {
-            const publicKey = await (window as any).freighterApi.getPublicKey();
-            if (publicKey === savedAddress) {
+            // Use getAddress() for previously authorized apps
+            const addressObj = await getAddress();
+            if (!addressObj.error && addressObj.address === savedAddress) {
               setAddress(savedAddress);
               setWalletType('freighter');
               setIsConnected(true);
+            } else {
+              // Clear invalid saved connection
+              localStorage.removeItem('wallet_address');
+              localStorage.removeItem('wallet_type');
             }
           }
         } catch (error) {
@@ -65,35 +70,54 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   // Connect to Freighter wallet
   const connectFreighter = useCallback(async (): Promise<string | null> => {
     try {
+      // Check if Freighter is installed
       const allowed = await isAllowed();
 
       if (!allowed) {
-        await setAllowed();
+        // Request access - this will show the Freighter popup
+        const accessObj = await requestAccess();
+
+        if (accessObj.error) {
+          toast.error('Failed to get access: ' + accessObj.error);
+          return null;
+        }
+
+        const publicKey = accessObj.address;
+
+        setAddress(publicKey);
+        setWalletType('freighter');
+        setIsConnected(true);
+        setIsCorrectNetwork(true);
+
+        // Persist connection
+        localStorage.setItem('wallet_address', publicKey);
+        localStorage.setItem('wallet_type', 'freighter');
+
+        toast.success('Freighter wallet connected!');
+        return publicKey;
+      } else {
+        // Already authorized, just get the address
+        const addressObj = await getAddress();
+
+        if (addressObj.error) {
+          toast.error('Failed to get address: ' + addressObj.error);
+          return null;
+        }
+
+        const publicKey = addressObj.address;
+
+        setAddress(publicKey);
+        setWalletType('freighter');
+        setIsConnected(true);
+        setIsCorrectNetwork(true);
+
+        // Persist connection
+        localStorage.setItem('wallet_address', publicKey);
+        localStorage.setItem('wallet_type', 'freighter');
+
+        toast.success('Freighter wallet connected!');
+        return publicKey;
       }
-
-      // Check network
-      const networkDetails = await (window as any).freighterApi?.getNetworkDetails();
-
-      if (networkDetails && networkDetails.networkPassphrase !== NETWORK_PASSPHRASE) {
-        toast.error('Please switch to Stellar Futurenet in Freighter');
-        setIsCorrectNetwork(false);
-        return null;
-      }
-
-      setIsCorrectNetwork(true);
-
-      const publicKey = await (window as any).freighterApi.getPublicKey();
-
-      setAddress(publicKey);
-      setWalletType('freighter');
-      setIsConnected(true);
-
-      // Persist connection
-      localStorage.setItem('wallet_address', publicKey);
-      localStorage.setItem('wallet_type', 'freighter');
-
-      toast.success('Freighter wallet connected!');
-      return publicKey;
     } catch (error) {
       console.error('Error connecting to Freighter:', error);
       toast.error('Failed to connect to Freighter. Please ensure it is installed.');
