@@ -73,6 +73,7 @@ soroban_token_contract.client = false
     .await;
 }
 
+// Test to verify that pre-existing account identities are handled correctly
 #[tokio::test]
 async fn funding_existing_account_toml() {
     TestEnv::from_async("soroban-init-boilerplate", async |env| {
