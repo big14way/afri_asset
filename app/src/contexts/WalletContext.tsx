@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { isAllowed, setAllowed, signTransaction, requestAccess, getAddress } from '@stellar/freighter-api';
 import toast from 'react-hot-toast';
+import { useStore } from '../store/useStore';
 
 const NETWORK_PASSPHRASE = 'Test SDF Future Network ; October 2022';
 
@@ -33,6 +34,16 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   const [address, setAddress] = useState<string | null>(null);
   const [walletType, setWalletType] = useState<'freighter' | 'walletconnect' | null>(null);
   const [isCorrectNetwork, setIsCorrectNetwork] = useState(true);
+
+  // Get Zustand store actions
+  const { setWalletAddress, setIsConnected: setStoreConnected } = useStore();
+
+  // Sync wallet state with Zustand store whenever it changes
+  useEffect(() => {
+    console.log('🔄 Syncing wallet state to store:', { address, isConnected });
+    setWalletAddress(address);
+    setStoreConnected(isConnected);
+  }, [address, isConnected, setWalletAddress, setStoreConnected]);
 
   // Check for existing connection on mount
   useEffect(() => {
