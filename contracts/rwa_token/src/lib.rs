@@ -155,9 +155,11 @@ impl RwaToken {
         env.storage()
             .persistent()
             .set(&DataKey::TokenData(token_id), &token_metadata);
-        env.storage()
-            .persistent()
-            .extend_ttl(&DataKey::TokenData(token_id), 31_536_000, 31_536_000);
+        env.storage().persistent().extend_ttl(
+            &DataKey::TokenData(token_id),
+            31_536_000,
+            31_536_000,
+        );
 
         // Emit minting event
         RwaMinted {
