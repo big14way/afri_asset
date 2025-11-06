@@ -3,10 +3,8 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.tsx';
 import { WalletProvider } from './contexts/WalletContext';
-import { initializeAppKit } from './config/walletConnect';
 
-// Initialize WalletConnect AppKit
-initializeAppKit();
+// Stellar Wallets Kit provides wallet selector modal
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

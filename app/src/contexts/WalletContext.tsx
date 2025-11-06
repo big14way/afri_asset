@@ -1,18 +1,28 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { isAllowed, setAllowed, signTransaction, requestAccess, getAddress } from '@stellar/freighter-api';
+import {
+  StellarWalletsKit,
+  WalletNetwork,
+  type ISupportedWallet,
+  FreighterModule,
+  xBullModule,
+  AlbedoModule,
+  RabetModule,
+  LobstrModule,
+  HanaModule
+} from '@creit.tech/stellar-wallets-kit';
 import toast from 'react-hot-toast';
 import { useStore } from '../store/useStore';
 
-const NETWORK_PASSPHRASE = 'Test SDF Future Network ; October 2022';
+const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
 
 export interface WalletContextType {
   // Connection state
   isConnected: boolean;
   address: string | null;
-  walletType: 'freighter' | 'walletconnect' | null;
+  walletType: string | null;
 
   // Connection methods
-  connect: (type?: 'freighter' | 'walletconnect') => Promise<string | null>;
+  connect: () => Promise<string | null>;
   disconnect: () => void;
 
   // Transaction methods
@@ -21,6 +31,9 @@ export interface WalletContextType {
   // Network info
   networkPassphrase: string;
   isCorrectNetwork: boolean;
+
+  // Wallet kit instance
+  kit: StellarWalletsKit | null;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -29,11 +42,37 @@ interface WalletProviderProps {
   children: ReactNode;
 }
 
+// Initialize Stellar Wallets Kit - Initialize lazily to avoid SSR issues
+let kit: StellarWalletsKit | null = null;
+
+const getKit = () => {
+  if (!kit && typeof window !== 'undefined') {
+    try {
+      kit = new StellarWalletsKit({
+        network: WalletNetwork.TESTNET,
+        selectedWalletId: FreighterModule.moduleId,
+        modules: [
+          new FreighterModule(),
+          new xBullModule(),
+          new AlbedoModule(),
+          new RabetModule(),
+          new LobstrModule(),
+          new HanaModule(),
+        ],
+      });
+    } catch (error) {
+      console.error('Failed to initialize Stellar Wallets Kit:', error);
+      throw error;
+    }
+  }
+  return kit;
+};
+
 export const WalletProvider = ({ children }: WalletProviderProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
-  const [walletType, setWalletType] = useState<'freighter' | 'walletconnect' | null>(null);
-  const [isCorrectNetwork, setIsCorrectNetwork] = useState(true);
+  const [walletType, setWalletType] = useState<string | null>(null);
+  const [isCorrectNetwork] = useState(true);
 
   // Get Zustand store actions
   const { setWalletAddress, setIsConnected: setStoreConnected } = useStore();
@@ -48,209 +87,114 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   // Check for existing connection on mount
   useEffect(() => {
     const checkExistingConnection = async () => {
-      const savedAddress = localStorage.getItem('wallet_address');
-      const savedWalletType = localStorage.getItem('wallet_type') as 'freighter' | 'walletconnect' | null;
+      try {
+        const walletKit = getKit();
+        if (!walletKit) return;
 
-      if (savedAddress && savedWalletType === 'freighter') {
-        try {
-          const allowed = await isAllowed();
-          if (allowed) {
-            // Use getAddress() for previously authorized apps
-            const addressObj = await getAddress();
-            if (!addressObj.error && addressObj.address === savedAddress) {
-              setAddress(savedAddress);
-              setWalletType('freighter');
-              setIsConnected(true);
-            } else {
-              // Clear invalid saved connection
-              localStorage.removeItem('wallet_address');
-              localStorage.removeItem('wallet_type');
-            }
-          }
-        } catch (error) {
-          console.error('Error checking existing connection:', error);
-          localStorage.removeItem('wallet_address');
-          localStorage.removeItem('wallet_type');
+        const { address: publicKey } = await walletKit.getAddress();
+        if (publicKey) {
+          console.log('✓ Found existing wallet connection:', publicKey);
+          setAddress(publicKey);
+          setIsConnected(true);
+          setWalletType(walletKit.selectedWallet?.name || null);
         }
+      } catch {
+        console.log('No existing wallet connection');
       }
     };
 
     checkExistingConnection();
   }, []);
 
-  // Connect to Freighter wallet
-  const connectFreighter = useCallback(async (): Promise<string | null> => {
+  // Connect wallet
+  const connect = useCallback(async (): Promise<string | null> => {
     try {
-      console.log('🔌 Attempting to connect to Freighter...');
-
-      // Check if Freighter is installed
-      const allowed = await isAllowed();
-      console.log('✓ Freighter isAllowed:', allowed);
-
-      if (!allowed) {
-        // Request access - this will show the Freighter popup
-        console.log('📝 Requesting access...');
-        const accessObj = await requestAccess();
-        console.log('✓ Access response:', accessObj);
-
-        if (accessObj.error) {
-          console.error('❌ Access error:', accessObj.error);
-          toast.error('Failed to get access: ' + accessObj.error);
-          return null;
-        }
-
-        const publicKey = accessObj.address;
-        console.log('✓ Got public key from requestAccess:', publicKey);
-
-        if (!publicKey) {
-          console.error('❌ No public key received');
-          toast.error('No address received from Freighter');
-          return null;
-        }
-
-        console.log('Setting state: address=', publicKey, 'walletType=freighter, isConnected=true');
-        setAddress(publicKey);
-        setWalletType('freighter');
-        setIsConnected(true);
-        setIsCorrectNetwork(true);
-
-        // Persist connection
-        localStorage.setItem('wallet_address', publicKey);
-        localStorage.setItem('wallet_type', 'freighter');
-
-        console.log('✅ Wallet connected successfully!');
-        toast.success(`Wallet connected: ${publicKey.slice(0,6)}...${publicKey.slice(-4)}`);
-        return publicKey;
-      } else {
-        // Already authorized, try to get the address first
-        console.log('📍 Getting existing address...');
-        const addressObj = await getAddress();
-        console.log('✓ Address response:', addressObj);
-
-        // If getAddress returns empty, use requestAccess instead
-        if (!addressObj.address || addressObj.error) {
-          console.log('⚠️ getAddress returned empty, using requestAccess instead...');
-          const accessObj = await requestAccess();
-          console.log('✓ Access response:', accessObj);
-
-          if (accessObj.error) {
-            console.error('❌ Access error:', accessObj.error);
-            toast.error('Failed to get access: ' + accessObj.error);
-            return null;
-          }
-
-          const publicKey = accessObj.address;
-          console.log('✓ Got public key from requestAccess:', publicKey);
-
-          if (!publicKey) {
-            console.error('❌ No public key received');
-            toast.error('No address received from Freighter');
-            return null;
-          }
-
-          console.log('Setting state: address=', publicKey, 'walletType=freighter, isConnected=true');
-          setAddress(publicKey);
-          setWalletType('freighter');
-          setIsConnected(true);
-          setIsCorrectNetwork(true);
-
-          // Persist connection
-          localStorage.setItem('wallet_address', publicKey);
-          localStorage.setItem('wallet_type', 'freighter');
-
-          console.log('✅ Wallet connected successfully!');
-          toast.success(`Wallet connected: ${publicKey.slice(0,6)}...${publicKey.slice(-4)}`);
-          return publicKey;
-        }
-
-        // getAddress worked, use that address
-        const publicKey = addressObj.address;
-        console.log('✓ Got public key from getAddress:', publicKey);
-
-        console.log('Setting state: address=', publicKey, 'walletType=freighter, isConnected=true');
-        setAddress(publicKey);
-        setWalletType('freighter');
-        setIsConnected(true);
-        setIsCorrectNetwork(true);
-
-        // Persist connection
-        localStorage.setItem('wallet_address', publicKey);
-        localStorage.setItem('wallet_type', 'freighter');
-
-        console.log('✅ Wallet connected successfully!');
-        toast.success(`Wallet connected: ${publicKey.slice(0,6)}...${publicKey.slice(-4)}`);
-        return publicKey;
+      const walletKit = getKit();
+      if (!walletKit) {
+        toast.error('Wallet kit not initialized');
+        return null;
       }
-    } catch (error) {
-      console.error('❌ Error connecting to Freighter:', error);
-      toast.error('Failed to connect to Freighter. Please ensure it is installed.');
-      return null;
-    }
-  }, []);
 
-  // Connect to WalletConnect (placeholder for future implementation)
-  const connectWalletConnect = useCallback(async (): Promise<string | null> => {
-    try {
-      // This will be implemented with WalletConnect modal
-      toast('WalletConnect integration coming soon!');
-      return null;
-    } catch (error) {
-      console.error('Error connecting to WalletConnect:', error);
-      toast.error('Failed to connect via WalletConnect');
-      return null;
-    }
-  }, []);
+      console.log('🔐 Opening wallet selector...');
 
-  // Main connect method
-  const connect = useCallback(async (type: 'freighter' | 'walletconnect' = 'freighter'): Promise<string | null> => {
-    if (type === 'freighter') {
-      return connectFreighter();
-    } else {
-      return connectWalletConnect();
+      // Open wallet modal for user to select wallet
+      await walletKit.openModal({
+        onWalletSelected: async (option: ISupportedWallet) => {
+          console.log(`Selected wallet: ${option.name}`);
+          setWalletType(option.name);
+
+          try {
+            // Set the selected wallet
+            walletKit.setWallet(option.id);
+
+            // Get address from the wallet
+            const { address: publicKey } = await walletKit.getAddress();
+
+            console.log('✓ Wallet connected:', publicKey);
+            setAddress(publicKey);
+            setIsConnected(true);
+
+            toast.success(`${option.name} wallet connected!`);
+          } catch (err: unknown) {
+            console.error('Error connecting wallet:', err);
+            toast.error(`Failed to connect ${option.name}`);
+            throw err;
+          }
+        },
+      });
+
+      return address;
+    } catch (error: unknown) {
+      console.error('❌ Error in wallet connection:', error);
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage && !errorMessage.includes('User cancelled')) {
+        toast.error('Failed to connect wallet');
+      }
+      return null;
     }
-  }, [connectFreighter, connectWalletConnect]);
+  }, [address]);
 
   // Disconnect wallet
   const disconnect = useCallback(() => {
+    console.log('🔓 Disconnecting wallet...');
+    setIsConnected(false);
     setAddress(null);
     setWalletType(null);
-    setIsConnected(false);
-    setIsCorrectNetwork(true);
-
-    localStorage.removeItem('wallet_address');
-    localStorage.removeItem('wallet_type');
-
     toast.success('Wallet disconnected');
   }, []);
 
   // Sign transaction
-  const signTx = useCallback(async (xdr: string): Promise<string> => {
+  const signTransaction = useCallback(async (xdr: string): Promise<string> => {
     if (!isConnected || !address) {
       throw new Error('Wallet not connected');
     }
 
-    if (walletType === 'freighter') {
-      try {
-        const result = await signTransaction(xdr, {
-          networkPassphrase: NETWORK_PASSPHRASE,
-        });
-
-        // Handle both old and new Freighter API response formats
-        if (typeof result === 'string') {
-          return result;
-        } else if (result && typeof result === 'object' && 'signedTxXdr' in result) {
-          return (result as any).signedTxXdr;
-        }
-
-        throw new Error('Invalid signature response');
-      } catch (error) {
-        console.error('Error signing transaction:', error);
-        throw new Error('Failed to sign transaction');
-      }
+    const walletKit = getKit();
+    if (!walletKit) {
+      throw new Error('Wallet kit not initialized');
     }
 
-    throw new Error('Unsupported wallet type');
-  }, [isConnected, address, walletType]);
+    try {
+      console.log('📝 Requesting transaction signature...');
+
+      const { signedTxXdr } = await walletKit.signTransaction(xdr, {
+        address,
+        networkPassphrase: NETWORK_PASSPHRASE,
+      });
+
+      console.log('✓ Transaction signed');
+      return signedTxXdr;
+    } catch (error: unknown) {
+      console.error('❌ Error signing transaction:', error);
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage.includes('User declined')) {
+        toast.error('Transaction declined by user');
+      } else {
+        toast.error('Failed to sign transaction');
+      }
+      throw error;
+    }
+  }, [isConnected, address]);
 
   const value: WalletContextType = {
     isConnected,
@@ -258,25 +202,19 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
     walletType,
     connect,
     disconnect,
-    signTransaction: signTx,
+    signTransaction,
     networkPassphrase: NETWORK_PASSPHRASE,
     isCorrectNetwork,
+    kit: getKit(),
   };
 
-  return (
-    <WalletContext.Provider value={value}>
-      {children}
-    </WalletContext.Provider>
-  );
+  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 };
 
-// Custom hook to use wallet context
-export const useWallet = (): WalletContextType => {
+export const useWallet = () => {
   const context = useContext(WalletContext);
-
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useWallet must be used within a WalletProvider');
   }
-
   return context;
 };

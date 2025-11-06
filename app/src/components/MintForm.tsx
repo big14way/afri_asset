@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ChangeEvent } from 'react';
 import { useIPFS, type AssetAttributes } from '../hooks/useIPFS';
 import { useRWAContract } from '../hooks/useRWAContract';
 import { useStore } from '../store/useStore';
+import { getIPFSGatewayUrl } from '../utils/ipfsHelpers';
 import toast from 'react-hot-toast';
 
 export const MintForm = () => {
@@ -112,30 +113,62 @@ export const MintForm = () => {
       }
 
       // Mint RWA token
-      toast.loading('Minting RWA token...');
+      const loadingToast = toast.loading('Minting RWA token...');
       const yieldData = Math.floor(Number(formData.yieldEstimate) * 10000000); // Convert to stroops
-      await mintRwa(metadataHash, yieldData);
 
-      toast.dismiss();
+      // Get IPFS gateway URL for image (using public gateway)
+      const imageUrl = getIPFSGatewayUrl(imageHash);
 
-      // Reset form
-      setFormData({
-        name: '',
-        description: '',
-        region: '',
-        yieldEstimate: '',
-        assetType: '',
-        country: '',
-        state: '',
-        city: '',
-        certification: '',
-        harvestDate: '',
+      const result = await mintRwa(metadataHash, yieldData, {
+        name: formData.name,
+        description: formData.description,
+        region: formData.region,
+        imageUrl,
+        yieldEstimate: Number(formData.yieldEstimate),
       });
-      setImageFile(null);
-      setImagePreview(null);
+
+      toast.dismiss(loadingToast);
+
+      if (result?.success) {
+        // Show success with transaction details
+        const explorerUrl = `https://stellar.expert/explorer/testnet/tx/${result.txHash}`;
+
+        toast.success(
+          <div className="flex flex-col gap-2">
+            <p className="font-semibold">🎉 RWA Token Minted Successfully!</p>
+            {result.tokenId !== null && (
+              <p className="text-sm">Token ID: #{result.tokenId}</p>
+            )}
+            <a
+              href={explorerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-blue-500 hover:text-blue-600 underline"
+            >
+              View Transaction →
+            </a>
+          </div>,
+          { duration: 8000 }
+        );
+
+        // Reset form
+        setFormData({
+          name: '',
+          description: '',
+          region: '',
+          yieldEstimate: '',
+          assetType: '',
+          country: '',
+          state: '',
+          city: '',
+          certification: '',
+          harvestDate: '',
+        });
+        setImageFile(null);
+        setImagePreview(null);
+      }
     } catch (error) {
       console.error('Error minting RWA:', error);
-      toast.dismiss();
       toast.error('Failed to mint RWA token');
     } finally {
       setIsMinting(false);

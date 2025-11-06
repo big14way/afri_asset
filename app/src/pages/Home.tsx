@@ -1,8 +1,28 @@
 import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
+import { OnboardingTutorial } from '../components/OnboardingTutorial';
 
 export const Home = () => {
   const { isConnected } = useStore();
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  // Check if user has seen the tutorial
+  useEffect(() => {
+    const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
+    if (!hasSeenTutorial) {
+      setShowTutorial(true);
+    }
+  }, []);
+
+  const handleTutorialComplete = () => {
+    localStorage.setItem('hasSeenTutorial', 'true');
+    setShowTutorial(false);
+  };
+
+  const handleShowTutorial = () => {
+    setShowTutorial(true);
+  };
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -201,6 +221,21 @@ export const Home = () => {
           </div>
         </div>
       </div>
+
+      {/* Tutorial Button - Show for returning users */}
+      {!showTutorial && (
+        <div className="py-8 text-center">
+          <button
+            onClick={handleShowTutorial}
+            className="px-6 py-2 text-sm border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+          >
+            📚 Show Tutorial Again
+          </button>
+        </div>
+      )}
+
+      {/* Onboarding Tutorial */}
+      {showTutorial && <OnboardingTutorial onComplete={handleTutorialComplete} />}
     </div>
   );
 };

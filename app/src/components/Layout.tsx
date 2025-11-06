@@ -74,6 +74,28 @@ export const Layout = () => {
                 >
                   Marketplace
                 </Link>
+                <Link
+                  to="/partners"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive('/partners')
+                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                  aria-current={isActive('/partners') ? 'page' : undefined}
+                >
+                  Partners
+                </Link>
+                <Link
+                  to="/transactions"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive('/transactions')
+                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                  aria-current={isActive('/transactions') ? 'page' : undefined}
+                >
+                  Transactions
+                </Link>
               </div>
             </div>
 

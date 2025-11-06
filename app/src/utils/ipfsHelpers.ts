@@ -134,3 +134,69 @@ export async function cleanupHelia(): Promise<void> {
     fsInstance = null;
   }
 }
+
+/**
+ * Public IPFS gateways for accessing content
+ * Using multiple gateways for better reliability
+ * Pinata gateway first for best performance with our uploads
+ */
+const PUBLIC_GATEWAYS = [
+  'https://gateway.pinata.cloud/ipfs',
+  'https://ipfs.io/ipfs',
+  'https://cloudflare-ipfs.com/ipfs',
+  'https://dweb.link/ipfs',
+  'https://w3s.link/ipfs',
+];
+
+/**
+ * Get IPFS gateway URL for a CID
+ * @param cid - Content identifier
+ * @param gatewayIndex - Index of the gateway to use (for fallback)
+ * @returns Full gateway URL
+ */
+export function getIPFSGatewayUrl(cid: string, gatewayIndex: number = 0): string {
+  const gateway = PUBLIC_GATEWAYS[gatewayIndex % PUBLIC_GATEWAYS.length];
+  return `${gateway}/${cid}`;
+}
+
+/**
+ * Get all possible gateway URLs for a CID
+ * @param cid - Content identifier
+ * @returns Array of gateway URLs
+ */
+export function getAllGatewayUrls(cid: string): string[] {
+  return PUBLIC_GATEWAYS.map(gateway => `${gateway}/${cid}`);
+}
+
+/**
+ * Extract CID from IPFS URL or return the CID if already extracted
+ * Handles various IPFS URL formats:
+ * - https://gateway.pinata.cloud/ipfs/bafkreig... -> bafkreig...
+ * - https://ipfs.io/ipfs/QmXxx... -> QmXxx...
+ * - ipfs://bafkreig... -> bafkreig...
+ * - bafkreig... -> bafkreig... (already a CID)
+ * @param urlOrCid - IPFS URL or CID
+ * @returns Extracted CID
+ */
+export function extractCID(urlOrCid: string): string {
+  if (!urlOrCid) return '';
+
+  // If it's just a CID (starts with bafy, bafk, Qm, etc.)
+  if (!urlOrCid.includes('/') && !urlOrCid.includes(':')) {
+    return urlOrCid;
+  }
+
+  // Handle ipfs:// protocol
+  if (urlOrCid.startsWith('ipfs://')) {
+    return urlOrCid.replace('ipfs://', '');
+  }
+
+  // Handle HTTP(S) gateway URLs
+  if (urlOrCid.includes('/ipfs/')) {
+    const parts = urlOrCid.split('/ipfs/');
+    return parts[1]?.split('?')[0] || ''; // Remove query params if any
+  }
+
+  // If nothing matches, return as-is (might already be a CID)
+  return urlOrCid;
+}

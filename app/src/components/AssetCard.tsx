@@ -1,17 +1,27 @@
 import { useState } from 'react';
 import type { RWAAsset } from '../store/useStore';
+import { VerificationBadge } from './VerificationBadge';
+import { IPFSImage } from './IPFSImage';
+import { useStore } from '../store/useStore';
+import toast from 'react-hot-toast';
 
 interface AssetCardProps {
   asset: RWAAsset;
   onTrade?: (asset: RWAAsset) => void;
+  showVerifyButton?: boolean;
 }
 
-export const AssetCard = ({ asset, onTrade }: AssetCardProps) => {
-  const [imageError, setImageError] = useState(false);
+export const AssetCard = ({ asset, onTrade, showVerifyButton = false }: AssetCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
+  const { verifyAsset, walletAddress } = useStore();
 
-  const handleImageError = () => {
-    setImageError(true);
+  const handleVerify = () => {
+    if (!walletAddress) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+    verifyAsset(asset.tokenId, 'AfriAssets Team');
+    toast.success(`${asset.metadata.name} has been verified!`);
   };
 
   return (
@@ -24,34 +34,13 @@ export const AssetCard = ({ asset, onTrade }: AssetCardProps) => {
     >
       {/* Image */}
       <div className="relative h-48 bg-gray-200 dark:bg-gray-700 overflow-hidden">
-        {imageError ? (
-          <div className="w-full h-full flex items-center justify-center">
-            <svg
-              className="w-16 h-16 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
-        ) : (
-          <img
-            src={asset.metadata.imageUrl}
-            alt={asset.metadata.name}
-            className={`w-full h-full object-cover transition-transform duration-300 ${
-              isHovered ? 'scale-110' : 'scale-100'
-            }`}
-            onError={handleImageError}
-            loading="lazy"
-          />
-        )}
+        <IPFSImage
+          cid={asset.metadata.imageUrl}
+          alt={asset.metadata.name}
+          className={`w-full h-full object-cover transition-transform duration-300 ${
+            isHovered ? 'scale-110' : 'scale-100'
+          }`}
+        />
 
         {/* Status Badge */}
         <div className="absolute top-2 right-2">
@@ -71,9 +60,15 @@ export const AssetCard = ({ asset, onTrade }: AssetCardProps) => {
 
       {/* Content */}
       <div className="p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 truncate">
-          {asset.metadata.name}
-        </h3>
+        <div className="flex items-start justify-between mb-2">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate flex-1">
+            {asset.metadata.name}
+          </h3>
+          <VerificationBadge
+            status={asset.verificationStatus || 'unverified'}
+            verifier={asset.verifiedBy}
+          />
+        </div>
 
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
           {asset.metadata.description}
@@ -103,16 +98,31 @@ export const AssetCard = ({ asset, onTrade }: AssetCardProps) => {
           </p>
         </div>
 
-        {/* Trade Button */}
-        {onTrade && asset.isActive && (
-          <button
-            onClick={() => onTrade(asset)}
-            className="w-full px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-            aria-label={`Trade ${asset.metadata.name}`}
-          >
-            Trade
-          </button>
-        )}
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          {onTrade && asset.isActive && (
+            <button
+              onClick={() => onTrade(asset)}
+              className="w-full px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              aria-label={`Trade ${asset.metadata.name}`}
+            >
+              Trade
+            </button>
+          )}
+
+          {showVerifyButton && asset.verificationStatus !== 'verified' && (
+            <button
+              onClick={handleVerify}
+              className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center space-x-2"
+              aria-label={`Verify ${asset.metadata.name}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Verify Asset</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
