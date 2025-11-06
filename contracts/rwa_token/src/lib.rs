@@ -99,7 +99,7 @@ impl RwaToken {
         env.storage().persistent().set(&DataKey::Admin, &admin);
         env.storage()
             .persistent()
-            .extend_ttl(&DataKey::Admin, 31536000, 31536000); // 1 year
+            .extend_ttl(&DataKey::Admin, 31_536_000, 31_536_000); // 1 year
 
         // Initialize token counter
         env.storage()
@@ -107,7 +107,7 @@ impl RwaToken {
             .set(&DataKey::TokenCounter, &0u64);
         env.storage()
             .persistent()
-            .extend_ttl(&DataKey::TokenCounter, 31536000, 31536000);
+            .extend_ttl(&DataKey::TokenCounter, 31_536_000, 31_536_000);
 
         // Emit initialization event
         Initialized {
@@ -141,7 +141,7 @@ impl RwaToken {
             .set(&DataKey::TokenCounter, &next_id);
         env.storage()
             .persistent()
-            .extend_ttl(&DataKey::TokenCounter, 31536000, 31536000);
+            .extend_ttl(&DataKey::TokenCounter, 31_536_000, 31_536_000);
 
         // Create metadata
         let token_metadata = Metadata {
@@ -157,7 +157,7 @@ impl RwaToken {
             .set(&DataKey::TokenData(token_id), &token_metadata);
         env.storage()
             .persistent()
-            .extend_ttl(&DataKey::TokenData(token_id), 31536000, 31536000);
+            .extend_ttl(&DataKey::TokenData(token_id), 31_536_000, 31_536_000);
 
         // Emit minting event
         RwaMinted {
