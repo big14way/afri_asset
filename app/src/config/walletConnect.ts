@@ -54,7 +54,7 @@ export const stellarTestnet: StellarNetwork = {
 
 // Initialize AppKit
 // Note: When Stellar adapter becomes available, this will be updated to use it
-let appKit: any = null;
+let appKit: ReturnType<typeof createAppKit> | null = null;
 
 export const initializeAppKit = () => {
   if (!projectId) {

@@ -90,16 +90,24 @@ impl RwaToken {
     /// Initialize the contract with an admin
     pub fn initialize(env: Env, admin: Address) -> Result<(), Error> {
         // Check if already initialized
-        if env.storage().instance().has(&DataKey::Admin) {
+        if env.storage().persistent().has(&DataKey::Admin) {
             return Err(Error::AlreadyInitialized);
         }
 
         // Set admin
         admin.require_auth();
-        env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().persistent().set(&DataKey::Admin, &admin);
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::Admin, 31_536_000, 31_536_000); // 1 year
 
         // Initialize token counter
-        env.storage().instance().set(&DataKey::TokenCounter, &0u64);
+        env.storage()
+            .persistent()
+            .set(&DataKey::TokenCounter, &0u64);
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::TokenCounter, 31_536_000, 31_536_000);
 
         // Emit initialization event
         Initialized {
@@ -117,27 +125,23 @@ impl RwaToken {
         owner: Address,
         yield_data: u128,
     ) -> Result<TokenId, Error> {
-        // Check if initialized
-        let admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .ok_or(Error::NotInitialized)?;
-
-        // Require admin authorization
-        admin.require_auth();
+        // Require owner authorization (permissionless - anyone can mint for themselves)
+        owner.require_auth();
 
         // Get and increment token counter
         let token_id: TokenId = env
             .storage()
-            .instance()
+            .persistent()
             .get(&DataKey::TokenCounter)
             .unwrap_or(0u64);
 
         let next_id = token_id + 1;
         env.storage()
-            .instance()
+            .persistent()
             .set(&DataKey::TokenCounter, &next_id);
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::TokenCounter, 31_536_000, 31_536_000);
 
         // Create metadata
         let token_metadata = Metadata {
@@ -149,8 +153,13 @@ impl RwaToken {
 
         // Store token data
         env.storage()
-            .instance()
+            .persistent()
             .set(&DataKey::TokenData(token_id), &token_metadata);
+        env.storage().persistent().extend_ttl(
+            &DataKey::TokenData(token_id),
+            31_536_000,
+            31_536_000,
+        );
 
         // Emit minting event
         RwaMinted {
@@ -168,7 +177,7 @@ impl RwaToken {
         // Get token data
         let mut token_data: Metadata = env
             .storage()
-            .instance()
+            .persistent()
             .get(&DataKey::TokenData(token_id))
             .ok_or(Error::TokenNotFound)?;
 
@@ -186,7 +195,7 @@ impl RwaToken {
 
         // Save updated data
         env.storage()
-            .instance()
+            .persistent()
             .set(&DataKey::TokenData(token_id), &token_data);
 
         // Emit transfer event
@@ -210,7 +219,7 @@ impl RwaToken {
         // Get token data
         let mut token_data: Metadata = env
             .storage()
-            .instance()
+            .persistent()
             .get(&DataKey::TokenData(token_id))
             .ok_or(Error::TokenNotFound)?;
 
@@ -229,14 +238,14 @@ impl RwaToken {
 
         // Store escrow balance
         env.storage()
-            .instance()
+            .persistent()
             .set(&DataKey::EscrowBalance(token_id), &escrow_xlm);
 
         // Transfer ownership
         let old_owner = token_data.owner.clone();
         token_data.owner = buyer.clone();
         env.storage()
-            .instance()
+            .persistent()
             .set(&DataKey::TokenData(token_id), &token_data);
 
         // Emit trade event
@@ -256,7 +265,7 @@ impl RwaToken {
         // Get token data
         let mut token_data: Metadata = env
             .storage()
-            .instance()
+            .persistent()
             .get(&DataKey::TokenData(token_id))
             .ok_or(Error::TokenNotFound)?;
 
@@ -267,7 +276,7 @@ impl RwaToken {
         token_data.is_active = false;
         let owner = token_data.owner.clone();
         env.storage()
-            .instance()
+            .persistent()
             .set(&DataKey::TokenData(token_id), &token_data);
 
         // Emit burn event
@@ -279,7 +288,7 @@ impl RwaToken {
     /// Get token metadata
     pub fn get_token(env: Env, token_id: TokenId) -> Result<Metadata, Error> {
         env.storage()
-            .instance()
+            .persistent()
             .get(&DataKey::TokenData(token_id))
             .ok_or(Error::TokenNotFound)
     }
@@ -287,20 +296,20 @@ impl RwaToken {
     /// Get total number of tokens minted
     pub fn get_token_count(env: Env) -> u64 {
         env.storage()
-            .instance()
+            .persistent()
             .get(&DataKey::TokenCounter)
             .unwrap_or(0u64)
     }
 
     /// Get admin address
     pub fn get_admin(env: Env) -> Option<Address> {
-        env.storage().instance().get(&DataKey::Admin)
+        env.storage().persistent().get(&DataKey::Admin)
     }
 
     /// Get escrow balance for a token
     pub fn get_escrow(env: Env, token_id: TokenId) -> Option<u128> {
         env.storage()
-            .instance()
+            .persistent()
             .get(&DataKey::EscrowBalance(token_id))
     }
 }

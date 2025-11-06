@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+export type VerificationStatus = 'verified' | 'pending' | 'unverified';
+
 export interface RWAAsset {
   tokenId: string;
   metadata: {
@@ -12,6 +14,9 @@ export interface RWAAsset {
   };
   owner: string;
   isActive: boolean;
+  verificationStatus?: VerificationStatus;
+  verifiedBy?: string;
+  verifiedAt?: string;
 }
 
 interface AppState {
@@ -34,6 +39,7 @@ interface AppState {
   setAssets: (assets: RWAAsset[]) => void;
   addAsset: (asset: RWAAsset) => void;
   updateAsset: (tokenId: string, updates: Partial<RWAAsset>) => void;
+  verifyAsset: (tokenId: string, verifiedBy: string) => void;
   toggleTheme: () => void;
   setIsLoading: (loading: boolean) => void;
 }
@@ -63,6 +69,19 @@ export const useStore = create<AppState>((set) => ({
   updateAsset: (tokenId, updates) => set((state) => ({
     assets: state.assets.map((asset) =>
       asset.tokenId === tokenId ? { ...asset, ...updates } : asset
+    ),
+  })),
+
+  verifyAsset: (tokenId, verifiedBy) => set((state) => ({
+    assets: state.assets.map((asset) =>
+      asset.tokenId === tokenId
+        ? {
+            ...asset,
+            verificationStatus: 'verified' as VerificationStatus,
+            verifiedBy,
+            verifiedAt: new Date().toISOString(),
+          }
+        : asset
     ),
   })),
 
