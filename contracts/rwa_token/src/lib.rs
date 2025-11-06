@@ -97,11 +97,17 @@ impl RwaToken {
         // Set admin
         admin.require_auth();
         env.storage().persistent().set(&DataKey::Admin, &admin);
-        env.storage().persistent().extend_ttl(&DataKey::Admin, 31536000, 31536000); // 1 year
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::Admin, 31536000, 31536000); // 1 year
 
         // Initialize token counter
-        env.storage().persistent().set(&DataKey::TokenCounter, &0u64);
-        env.storage().persistent().extend_ttl(&DataKey::TokenCounter, 31536000, 31536000);
+        env.storage()
+            .persistent()
+            .set(&DataKey::TokenCounter, &0u64);
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::TokenCounter, 31536000, 31536000);
 
         // Emit initialization event
         Initialized {
