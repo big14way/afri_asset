@@ -158,7 +158,7 @@ export const Layout = () => {
                 </div>
               ) : (
                 <button
-                  onClick={() => connect('freighter')}
+                  onClick={() => connect()}
                   className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 transition-colors text-sm font-medium"
                   aria-label="Connect wallet"
                 >

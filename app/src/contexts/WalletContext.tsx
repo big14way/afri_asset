@@ -50,7 +50,7 @@ const getKit = () => {
     try {
       kit = new StellarWalletsKit({
         network: WalletNetwork.TESTNET,
-        selectedWalletId: FreighterModule.moduleId,
+        selectedWalletId: 'freighter',
         modules: [
           new FreighterModule(),
           new xBullModule(),
@@ -96,7 +96,7 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
           console.log('✓ Found existing wallet connection:', publicKey);
           setAddress(publicKey);
           setIsConnected(true);
-          setWalletType(walletKit.selectedWallet?.name || null);
+          setWalletType('Freighter');
         }
       } catch {
         console.log('No existing wallet connection');
