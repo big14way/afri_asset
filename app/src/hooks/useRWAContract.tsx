@@ -467,7 +467,7 @@ export const useRWAContract = () => {
       // Simulate to get result
       const simulateResponse = await server.simulateTransaction(transaction);
 
-      if (simulateResponse.result) {
+      if ('result' in simulateResponse && simulateResponse.result) {
         const count = scValToNative(simulateResponse.result.retval);
         console.log('✅ Token count:', count);
         return count;
@@ -505,7 +505,7 @@ export const useRWAContract = () => {
       // Simulate to get result
       const simulateResponse = await server.simulateTransaction(transaction);
 
-      if (simulateResponse.result) {
+      if ('result' in simulateResponse && simulateResponse.result) {
         const tokenData = scValToNative(simulateResponse.result.retval);
         console.log(`✅ Token ${tokenId} data:`, tokenData);
         return tokenData;
